@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Results (browser profiles, logs, etc.)
+Result/
+*.xls
+*.xlsx
+
+# Node.js
+CrawlerProject/dashboard/node_modules/
+CrawlerProject/dashboard/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Batch files (local only)
+*.bat
