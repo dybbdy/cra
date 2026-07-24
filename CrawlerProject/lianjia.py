@@ -24,10 +24,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from crypto_utils import encrypt_phone, generate_hmac, mask_name
 
@@ -86,7 +82,7 @@ class LianjiaCrawler:
     def __init__(
         self,
         target_count: int = 100,
-        max_detail_pages: int = 30,
+        max_detail_pages: int = 100,
         enable_manual_verify: bool = True,
         browser: str = "edge",
     ) -> None:
@@ -95,35 +91,6 @@ class LianjiaCrawler:
         self.enable_manual_verify = enable_manual_verify
         self.browser = (browser or "edge").lower()
         self.cookie_file = RESULT_DIR / f"lianjia_session_{self.browser}.json"
-        self.session = self._build_session()
-        self.user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        ]
-        self.headers = {
-            "User-Agent": random.choice(self.user_agents),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Referer": "https://bj.lianjia.com/",
-        }
-
-    @staticmethod
-    def _build_session() -> requests.Session:
-        """创建带自动重试功能的请求会话。"""
-        retry = Retry(
-            total=3,
-            connect=3,
-            read=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "HEAD"],
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session = requests.Session()
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
 
     @staticmethod
     def ensure_directories() -> None:
@@ -132,18 +99,10 @@ class LianjiaCrawler:
 
     @staticmethod
     def random_sleep() -> None:
-        """随机休眠 1~3 秒。"""
-        delay = random.uniform(1, 3)
+        """随机休眠 3~6 秒，降低被检测风险。"""
+        delay = random.uniform(3, 6)
         logging.info("随机休眠 %.2f 秒", delay)
         time.sleep(delay)
-
-    def fetch_html(self, url: str) -> str:
-        """请求页面源码。"""
-        logging.info("请求页面：%s", url)
-        self.random_sleep()
-        response = self.session.get(url, headers=self.headers, timeout=30)
-        response.raise_for_status()
-        return response.text
 
     @staticmethod
     def parse_house_info(house_info_text: str) -> Dict[str, str]:
@@ -176,66 +135,6 @@ class LianjiaCrawler:
             item.get("电话密文", ""),
         ]
         return "|".join(fields)
-
-    def parse_list_by_requests(self, max_pages: int = 10) -> List[Dict[str, str]]:
-        """
-        优先尝试使用 requests + BeautifulSoup 抓取列表页。
-
-        若遇到人机验证或数据不足，则后续自动切换 Selenium。
-        """
-        logging.info("开始尝试 requests 静态抓取链家列表页")
-        records: List[Dict[str, str]] = []
-        for page in range(1, max_pages + 1):
-            if len(records) >= self.target_count:
-                break
-
-            page_url = BASE_URL if page == 1 else f"{BASE_URL}pg{page}/"
-            try:
-                html = self.fetch_html(page_url)
-            except Exception as exc:
-                logging.warning("第 %s 页请求失败：%s", page, exc)
-                continue
-
-            if "人机验证" in html or "验证码" in html:
-                logging.warning("第 %s 页触发了人机验证，停止静态抓取", page)
-                break
-
-            soup = BeautifulSoup(html, "lxml")
-            houses = soup.select(".sellListContent li")
-            if not houses:
-                logging.warning("第 %s 页未获取到房源卡片", page)
-                continue
-
-            for house in houses:
-                title_link = house.select_one(".title a")
-                community_link = house.select_one(".positionInfo a")
-                house_info = house.select_one(".houseInfo")
-                total_price = house.select_one(".totalPrice span")
-                unit_price = house.select_one(".unitPrice span")
-
-                detail_url = title_link.get("href", "").strip() if title_link else ""
-                community_name = community_link.get_text(strip=True) if community_link else ""
-                house_text = house_info.get_text(" ", strip=True) if house_info else ""
-                parsed_info = self.parse_house_info(house_text)
-
-                item = {
-                    "小区名": community_name,
-                    "户型": parsed_info["户型"],
-                    "面积": parsed_info["面积"],
-                    "朝向": parsed_info["朝向"],
-                    "楼层": parsed_info["楼层"],
-                    "总价": (total_price.get_text(strip=True) + "万") if total_price else "",
-                    "单价": unit_price.get_text(strip=True) if unit_price else "",
-                    "详情链接": detail_url,
-                }
-                records.append(item)
-
-                if len(records) >= self.target_count:
-                    break
-
-            logging.info("已从静态列表页累计抓取 %s 条房源", len(records))
-
-        return records[: self.target_count]
 
     def _create_driver(self) -> webdriver.Chrome:
         """创建 Selenium 驱动，并复用本地浏览器资料目录。"""
@@ -374,14 +273,6 @@ class LianjiaCrawler:
         logging.info("人工验证完成，继续复用当前浏览器会话抓取详情页")
         return True
 
-    def _sync_driver_cookies_to_session(self, driver: webdriver.Chrome) -> None:
-        """将 Selenium 当前会话 Cookie 同步到 requests 会话。"""
-        try:
-            for cookie in driver.get_cookies():
-                self.session.cookies.set(cookie["name"], cookie["value"])
-        except Exception as exc:
-            logging.warning("同步浏览器 Cookie 到 requests 会话失败：%s", exc)
-
     def _save_driver_cookies(self, driver: webdriver.Chrome) -> None:
         """将浏览器 Cookie 保存到本地文件，供下次运行复用。"""
         try:
@@ -423,7 +314,6 @@ class LianjiaCrawler:
 
         driver.get(BASE_URL)
         time.sleep(2)
-        self._sync_driver_cookies_to_session(driver)
         logging.info("已加载历史登录会话 Cookie，共 %s 条", loaded_count)
         return True
 
@@ -449,7 +339,6 @@ class LianjiaCrawler:
         time.sleep(2)
 
         self._save_driver_cookies(driver)
-        self._sync_driver_cookies_to_session(driver)
         return driver
 
     def _load_page_with_reuse_session(self, driver: webdriver.Chrome, url: str) -> bool:
@@ -478,7 +367,6 @@ class LianjiaCrawler:
             if not self._wait_manual_verification(driver, url):
                 return False
 
-        self._sync_driver_cookies_to_session(driver)
         return True
 
     @staticmethod
@@ -812,8 +700,8 @@ def main() -> None:
     parser.add_argument(
         "--max-detail-pages",
         type=int,
-        default=30,
-        help="最多抓取多少个详情页以提取经纪人信息，默认 30",
+        default=100,
+        help="最多抓取多少个详情页以提取经纪人信息，默认 100",
     )
     parser.add_argument(
         "--disable-manual-verify",

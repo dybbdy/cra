@@ -1,4 +1,15 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="32" height="32" fill="#0A0B0D"/>
-<path d="M26.6677 23.7149H8.38057V20.6496H5.33301V8.38159H26.6677V23.7149ZM8.38057 20.6496H23.6201V11.4482H8.38057V20.6496ZM16.0011 16.0021L13.8461 18.1705L11.6913 16.0021L13.8461 13.8337L16.0011 16.0021ZM22.0963 16.0008L19.9414 18.1691L17.7865 16.0008L19.9414 13.8324L22.0963 16.0008Z" fill="#32F08C"/>
+  <!-- Spider web background -->
+  <circle cx="16" cy="16" r="14" fill="#1a1a2e" stroke="#4ade80" stroke-width="1"/>
+  <!-- Web lines -->
+  <line x1="16" y1="4" x2="16" y2="28" stroke="#4ade80" stroke-width="0.5"/>
+  <line x1="4" y1="16" x2="28" y2="16" stroke="#4ade80" stroke-width="0.5"/>
+  <line x1="7" y1="7" x2="25" y2="25" stroke="#4ade80" stroke-width="0.5"/>
+  <line x1="25" y1="7" x2="7" y2="25" stroke="#4ade80" stroke-width="0.5"/>
+  <!-- Spider body -->
+  <ellipse cx="16" cy="14" rx="4" ry="3" fill="#4ade80"/>
+  <circle cx="16" cy="10" r="2.5" fill="#22c55e"/>
+  <!-- Spider legs -->
+  <path d="M12 13 L8 10 M12 14 L7 14 M12 15 L8 18" stroke="#4ade80" stroke-width="1" stroke-linecap="round"/>
+  <path d="M20 13 L24 10 M20 14 L25 14 M20 15 L24 18" stroke="#4ade80" stroke-width="1" stroke-linecap="round"/>
 </svg>

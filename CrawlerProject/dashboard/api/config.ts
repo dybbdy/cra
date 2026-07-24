@@ -8,7 +8,7 @@ export const DASHBOARD_ROOT = path.resolve(__dirname, '..')
 export const PROJECT_ROOT = path.resolve(DASHBOARD_ROOT, '..')
 export const RESULT_DIR = path.join(PROJECT_ROOT, 'Result')
 export const QS_LOGO_DIR = path.join(PROJECT_ROOT, 'QSLogo')
-export const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || 'python'
+export const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || 'D:\\MySoftwarelast\\miniconda\\miniconda3\\envs\\data_sercurity\\python.exe'
 
 export const RESULT_FILE_NAMES = [
   'QSRank.txt',
